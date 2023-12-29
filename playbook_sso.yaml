@@ -1,0 +1,80 @@
+---
+#
+# Playbook to create an installation of Red Hat SSO
+#
+- name: Deploy SSO in OpenShift cluster
+  hosts: localhost
+  vars:
+    project: "sso"
+    hostname: "example-kc-ingress.sso.apps.cluster-wwpq2.dynamic.redhatworkshops.io"
+    database_username: "dbuser"
+    database_name: "dbuser"
+    database_password: "dbpassword"
+    database_hostname: "postgresql"
+  tasks:
+
+    - name: Create OperatorGroup
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: operators.coreos.com/v1
+          kind: OperatorGroup
+          metadata:
+            name: rhbk
+            namespace: "{{ project }}"
+          spec:
+            targetNamespaces:
+              - "{{ project }}"
+            upgradeStrategy: Default
+
+    - name: Create Subscription
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: Subscription
+          metadata:
+            name: rhbk-operator
+            namespace: "{{ project }}"
+          spec:
+            channel: stable-v22
+            name: rhbk-operator
+            installPlanApproval: Automatic
+            source: redhat-operators
+            sourceNamespace: openshift-marketplace
+            startingCSV: rhbk-operator.v22.0.7-opr.1
+
+    - name: Gen OpenSSL
+      command: "openssl req -subj \"/CN=test.keycloak.org/O=Test Keycloak./C=US\" -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem"
+
+    - name: Import TLS
+      command: "oc create secret tls example-tls-secret --cert certificate.pem --key key.pem -n {{ project }}"
+
+    - name: Import TLS
+      command: "oc create secret generic keycloak-db-secret --from-literal=username={{ database_username }} --from-literal=password={{ database_password }} -n {{ project }}"
+
+    - name: Create Keycloak
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: k8s.keycloak.org/v2alpha1
+          kind: Keycloak
+          metadata:
+            name: example-kc
+            namespace: "{{ project }}"
+          spec:
+            instances: 1
+            db:
+              database: "{{ database_name }}"
+              vendor: postgres
+              host: "{{ database_hostname }}"
+              usernameSecret:
+                name: keycloak-db-secret
+                key: username
+              passwordSecret:
+                name: keycloak-db-secret
+                key: password
+            http:
+              tlsSecret: example-tls-secret
+            hostname:
+              hostname: "{{ hostname }}"

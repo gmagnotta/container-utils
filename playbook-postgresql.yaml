@@ -4,35 +4,12 @@
   vars:
     project: "myproject"
     application_name: "postgresql"
-    secret_name: "secret_name"
-    dockerconfigjson: "placehere"
-    volume_capacity: "200Mi"
+    volume_capacity: "1Gi"
     postgresql_database: "dbuser"
     postgresql_user: "dbuser"
     postgresql_password: "dbpassword"
   tasks:
-    - name: Create Project
-      kubernetes.core.k8s:
-        name: "{{ project }}"
-        api_version: project.openshift.io/v1
-        kind: Project
-        state: present
-#    - name: Create Secret
-#      kubernetes.core.k8s:
-#        state: present
-#        definition:
-#          apiVersion: v1
-#          kind: Secret
-#          metadata:
-#            name: "{{ secret_name }}"
-#            namespace: "{{ project }}"
-#          data:
-#            .dockerconfigjson: "{{ dockerconfigjson }}"
-#          type: kubernetes.io/dockerconfigjson
-#    - name: Link secret to default
-#      command: "oc secrets link default {{ secret_name }} --for=pull -n {{ project }}" 
-#    - name: Link secret to builder
-#      command: "oc secrets link builder {{ secret_name }} -n {{ project }}" 
+
     - name: Create ImageStream
       kubernetes.core.k8s:
         state: present
@@ -54,6 +31,7 @@
                 name: 10-el8
                 referencePolicy:
                   type: Local
+
     - name: Create PersistentVolumeClaim
       kubernetes.core.k8s:
         state: present
@@ -69,6 +47,7 @@
             resources:
               requests:
                 storage: "{{ volume_capacity }}"
+
     - name: Create ConfigMap
       kubernetes.core.k8s:
         state: present
@@ -82,6 +61,7 @@
             postgresql-max-prepared-transactions: ''
             postgresql-max-connections: ''
             postgresql-shared-buffers: ''
+
     - name: Create Secret
       kubernetes.core.k8s:
         state: present
@@ -95,6 +75,7 @@
             postgresql-database: "{{ postgresql_database | b64encode }}"
             postgresql-user: "{{ postgresql_user | b64encode }}"
             postgresql-password: "{{ postgresql_password  | b64encode}}"
+
     - name: Create Deployment
       kubernetes.core.k8s:
         state: present
@@ -199,6 +180,7 @@
               type: Recreate
             revisionHistoryLimit: 10
             progressDeadlineSeconds: 600
+
     - name: Create Service
       kubernetes.core.k8s:
         state: present
