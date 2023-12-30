@@ -13,7 +13,7 @@ RUN microdnf install -y unzip && \
 FROM registry.access.redhat.com/ubi8/openjdk-11-runtime
 
 LABEL io.openshift.s2i.scripts-url="image:///flyway" \
-      io.s2i.scripts-url="image:///flyway"
+      io.openshift.s2i.destination="/tmp"
 
 USER root
 
