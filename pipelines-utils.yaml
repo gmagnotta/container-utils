@@ -240,6 +240,27 @@ spec:
       workingDir: /workspace/repository
 ---
 apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: vulnerability-scan
+spec:
+  description: Perform vulnerability scan via trivy
+  params:
+    - name: IMAGE
+      default: 'quay.io/gmagnotta/trivy-with-dbs@sha256:b6348c48e607588d266d6d9a63dea1ab675387bbef40fe538ce5c27d6ccf4e4e'
+      type: string
+    - name: IMAGETOSCAN
+      type: string
+    - name: SEVERITIES
+      default: 'CRITICAL'
+      type: string
+  steps:
+    - name: vulnerability-scan
+      image: $(params.IMAGE)
+      resources: {}
+      args: ["--cache-dir", "/cache/trivy", "image", "--skip-db-update", "--skip-java-db-update", "--offline-scan", "--exit-code", "1", "--severity", "$(params.SEVERITIES)", "$(params.IMAGETOSCAN)"]
+---
+apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   name: image-copy-pipeline
