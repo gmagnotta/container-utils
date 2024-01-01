@@ -1,0 +1,52 @@
+---
+- name: Deploy new schema in postgresql
+  hosts: localhost
+  vars:
+    project: "hello-tomcat"
+    container: "postgresql"
+    postgresql_database: "dbuser2"
+    postgresql_user: "dbuser2"
+    postgresql_password: "dbpassword2"
+    cdc: true
+  tasks:
+
+    - name: Drop database
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "DROP DATABASE IF EXISTS {{ postgresql_database }};"
+
+    - name: Drop User
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "DROP USER IF EXISTS {{ postgresql_user }};"
+
+    - name: Create Database
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "CREATE DATABASE {{ postgresql_database }};"
+
+    - name: Create User
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "CREATE USER {{ postgresql_user }} with encrypted password '{{ postgresql_password }}';"
+
+    - name: Enable Replication
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "ALTER USER {{ postgresql_user }} REPLICATION;"
+      when: cdc|bool == true
+
+    - name: Enable Publication
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql {{ postgresql_user }} -c "CREATE PUBLICATION dbz_publication FOR ALL TABLES;"
+      when: cdc|bool == true
+
+    - name: Change WAL level
+      command: oc exec svc/{{ container }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#wal_level \= replica/wal_level \= logical/g' /var/lib/pgsql/data/userdata/postgresql.conf"
+      when: cdc|bool == true
+
+    - name: Change WAL level
+      command: oc exec svc/{{ container }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#max_wal_senders \= 10/max_wal_senders \= 4/g' /var/lib/pgsql/data/userdata/postgresql.conf"
+      when: cdc|bool == true
+
+    - name: Change WAL level
+      command: oc exec svc/{{ container }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#smax_replication_slots \= 10/max_replication_slots \= 4/g' /var/lib/pgsql/data/userdata/postgresql.conf"
+      when: cdc|bool == true
+
+    - name: Get pod name
+      shell: oc get pod -n {{ project }} -o name | grep -i {{ container }}
+      when: cdc|bool == true
+      register: podname
+
+    - name: Restart pod
+      command: oc delete {{ podname.stdout }} -n {{ project }}
+      when: cdc|bool == true
