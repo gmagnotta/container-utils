@@ -27,10 +27,11 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: get-configmap-value
+  namespace: hello-tomcat
 spec:
   params:
     - name: IMAGE
-      default: registry.redhat.io/openshift4/ose-cli
+      default: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
       type: string
     - name: CONFIGMAP-NAME
       type: string
@@ -111,13 +112,16 @@ spec:
       type: string
     - name: BUILDCONFIG-NAME
       type: string
+    - name: OC_PARAMS
+      default: ''
+      type: string
   results:
-    - name: VALUE
-      description: the value read
-    - name: URL
+    - name: IMAGE_URL
       description: the image url
-    - name: DIGEST
+    - name: IMAGE_DIGEST
       description: the image digest
+    - name: SIMPLE_DIGEST
+      description: the image sha without prefix
   steps:
     - name: oc
       image: $(params.IMAGE)
@@ -132,30 +136,28 @@ spec:
         [[ "$(workspaces.kubeconfig-dir.bound)" == "true" ]] && [[ -f $(workspaces.kubeconfig-dir.path)/kubeconfig ]] && export KUBECONFIG=$(workspaces.kubeconfig-dir.path)/kubeconfig
 
         set -eu -o pipefail
+
+        if [ "$(params.OC_PARAMS)" != "" ] ; then
+
+          oc start-build $(params.BUILDCONFIG-NAME) --wait --follow $(params.OC_PARAMS)
         
-        oc start-build $(params.BUILDCONFIG-NAME) --wait --follow
+        else
+
+          oc start-build $(params.BUILDCONFIG-NAME) --wait --follow
+
+        fi
 
         #VALUE=$(oc get buildconfig $(params.BUILDCONFIG-NAME) -o jsonpath='{.status.imageChangeTriggers[0].lastTriggeredImageID}')
 
         IMAGE=$(oc get buildconfig $(params.BUILDCONFIG-NAME) -o jsonpath='{.spec.output.to.name}' | cut -d ':' -f 1)
 
-        VALUE=$(oc get is $IMAGE -o jsonpath='{.status.tags[0].items[0].dockerImageReference}')
+        IMAGE_URL=$(oc get is $IMAGE -o jsonpath='{.status.tags[0].items[0].dockerImageReference}')
 
-        echo -n "$VALUE" > $(results.VALUE.path)
+        echo -n "$(echo $IMAGE_URL | cut -d '@' -f 1)" > $(results.IMAGE_URL.path)
 
-        echo "Built image is $VALUE"
+        echo -n "$(echo $IMAGE_URL | cut -d '@' -f 2)" > $(results.IMAGE_DIGEST.path)
 
-        URL=$(echo $VALUE | cut -d '@' -f 1)
-
-        echo -n "$URL" > $(results.URL.path)
-
-        echo "URL is $URL"
-
-        DIGEST=$(echo $VALUE | cut -d '@' -f 2 | cut -d ':' -f 2)
-
-        echo -n "$DIGEST" > $(results.DIGEST.path)
-
-        echo "Digest is $DIGEST"
+        echo -n "$(echo $IMAGE_URL | cut -d '@' -f 2 | cut -d ':' -f 2)" > $(results.SIMPLE_DIGEST.path)
   workspaces:
     - name: manifest-dir
       optional: true
@@ -305,3 +307,21 @@ spec:
           value: "false"
         - name: destTLSverify
           value: "false"
+---
+# Example to update a configmap from a pipeline:
+- name: update-built-image
+  taskRef:
+    name: openshift-client
+    kind: ClusterTask
+  runAfter:
+    - vuln-scan
+  params:
+    - name: SCRIPT
+      value: |
+        set -eu -o pipefail
+
+        oc patch configmap/hello-tomcat-pipelineconfig --type merge -p '{"data":{"dev-latest-built-image":"$(tasks.build-runtime-image.results.IMAGE_URL)"}}'
+
+        oc patch configmap/hello-tomcat-pipelineconfig --type merge -p '{"data":{"dev-latest-built-digest":"$(tasks.build-runtime-image.results.IMAGE_DIGEST)"}}'
+
+        oc patch configmap/hello-tomcat-pipelineconfig --type merge -p '{"data":{"dev-latest-built-simpledigest":"$(tasks.build-runtime-image.results.SIMPLE_DIGEST)"}}'
