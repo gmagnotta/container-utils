@@ -2,12 +2,12 @@
 - name: Deploy new schema in postgresql
   hosts: localhost
   vars:
-    project: "hello-tomcat"
+    project: "postgresql"
     container: "postgresql"
-    postgresql_database: "dbuser2"
-    postgresql_user: "dbuser2"
-    postgresql_password: "dbpassword2"
-    cdc: true
+    postgresql_database: "dbuser"
+    postgresql_user: "dbuser"
+    postgresql_password: "dbpassword"
+    cdc: false
   tasks:
 
     - name: Drop database

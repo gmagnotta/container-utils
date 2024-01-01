@@ -78,6 +78,3 @@
     - name: Print value
       ansible.builtin.debug:
         msg: "cosign pub key={{ cosign_pub.stdout }}"
-
-# To verify signed images:
-# cosign verify --key pubkey.key myregistry/myuser/myimage:tag

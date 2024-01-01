@@ -19,3 +19,16 @@
     - name: Link secret to builder
       command: "oc secrets link builder redhatregistryio -n {{ project }}"
 
+    - name: Create OperatorGroup
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: operators.coreos.com/v1
+          kind: OperatorGroup
+          metadata:
+            name: myoperatorgroup
+            namespace: "{{ project }}"
+          spec:
+            targetNamespaces:
+              - "{{ project }}"
+            upgradeStrategy: Default

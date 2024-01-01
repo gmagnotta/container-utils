@@ -13,20 +13,6 @@
     database_hostname: "postgresql"
   tasks:
 
-    - name: Create OperatorGroup
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: operators.coreos.com/v1
-          kind: OperatorGroup
-          metadata:
-            name: rhbk
-            namespace: "{{ project }}"
-          spec:
-            targetNamespaces:
-              - "{{ project }}"
-            upgradeStrategy: Default
-
     - name: Create Subscription
       kubernetes.core.k8s:
         state: present
