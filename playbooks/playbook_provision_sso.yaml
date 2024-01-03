@@ -39,6 +39,11 @@
     - name: Import TLS
       command: "oc create secret generic keycloak-db-secret --from-literal=username={{ database_username }} --from-literal=password={{ database_password }} -n {{ project }}"
 
+    - name: Wait for init
+      ansible.builtin.pause:
+        minutes: 1
+        prompt: "check that operator is installed"
+
     - name: Create Keycloak
       kubernetes.core.k8s:
         state: present
