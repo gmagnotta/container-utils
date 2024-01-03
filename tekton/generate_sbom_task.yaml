@@ -1,0 +1,22 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: generate-sbom
+spec:
+  description: Generate Sbom with syft
+  params:
+    - name: IMAGE
+      default: 'docker.io/anchore/syft@sha256:803d8af5b740fbaa75bd780b947d32721148f8464efbee9b656bb5f2a5dcf176'
+      type: string
+    - name: IMAGETOSCAN
+      type: string
+    - name: SBOMFILE
+      default: 'result.cdx'
+      type: string  
+  workspaces:
+    - name: source
+  steps:
+    - name: generate-sbom
+      image: $(params.IMAGE)
+      resources: {}
+      args: ["$(params.IMAGETOSCAN)", "-o", "syft-table", "-o", "cyclonedx-json=$(params.SBOMFILE)"]
