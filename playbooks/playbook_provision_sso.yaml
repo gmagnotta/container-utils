@@ -6,10 +6,10 @@
   hosts: localhost
   vars:
     project: "sso"
-    hostname: "example-kc-ingress.sso.apps.cluster-wwpq2.dynamic.redhatworkshops.io"
-    database_username: "dbuser"
-    database_name: "dbuser"
-    database_password: "dbpassword"
+    hostname: "sso-ingress.sso.localdomain"
+    database_username: "sso"
+    database_name: "sso"
+    database_password: "sso"
     database_hostname: "postgresql"
   tasks:
 
@@ -31,7 +31,7 @@
             startingCSV: rhbk-operator.v22.0.7-opr.1
 
     - name: Gen OpenSSL
-      command: "openssl req -subj \"/CN=test.keycloak.org/O=Test Keycloak./C=US\" -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem"
+      command: openssl req -subj "/CN={{ hostname }}/O=Test Keycloak./C=US" -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem
 
     - name: Import TLS
       command: "oc create secret tls example-tls-secret --cert certificate.pem --key key.pem -n {{ project }}"
@@ -51,7 +51,7 @@
           apiVersion: k8s.keycloak.org/v2alpha1
           kind: Keycloak
           metadata:
-            name: example-kc
+            name: sso
             namespace: "{{ project }}"
           spec:
             instances: 1
