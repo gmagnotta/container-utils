@@ -1,0 +1,89 @@
+---
+#
+# Playbook to create an installation of Prometheus
+#
+#
+# Remember to give the service account view role:
+#
+# `oc policy add-role-to-user view system:serviceaccount:monitoring:prometheus-k8s -n <destination-namespace>`
+#
+- name: Deploy Prometheus in OpenShift cluster
+  hosts: localhost
+  vars:
+    project: "prometheus"
+  tasks:
+
+    - name: Create Subscription
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: Subscription
+          metadata:
+            name: rhods-prometheus-operator
+            namespace: "{{ project }}"
+          spec:
+            channel: beta
+            name: rhods-prometheus-operator
+            installPlanApproval: Automatic
+            source: redhat-operators
+            sourceNamespace: openshift-marketplace
+            startingCSV: rhods-prometheus-operator.4.10.0
+
+    - name: Wait for init
+      ansible.builtin.pause:
+        minutes: 5
+        prompt: "check that operator is installed"
+
+    # Example Service Monitor
+    #
+    # - name: Create Prometheus ServiceMonitor
+    #   kubernetes.core.k8s:
+    #     state: present
+    #     definition:
+    #       apiVersion: monitoring.coreos.com/v1
+    #       kind: ServiceMonitor
+    #       metadata:
+    #         labels:
+    #           serviceMonitorSelector: prometheus
+    #         name: 3scale
+    #         namespace: "{{ project }}"
+    #       spec:
+    #         endpoints:
+    #         - interval: 30s
+    #           targetPort: 9421
+    #           path: /metrics
+    #         namespaceSelector:
+    #           matchNames:
+    #           - "{{ project }}"
+    #         selector:
+    #           matchLabels:
+    #             app: 3scale-api-management
+
+    - name: Create Prometheus
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: monitoring.coreos.com/v1
+          kind: Prometheus
+          metadata:
+            name: prometheus
+            namespace: "{{ project }}"
+          spec:
+            serviceAccountName: prometheus-k8s
+            serviceMonitorSelector:
+              matchLabels:
+                # check all servicemonitor with this selector
+                serviceMonitorSelector: prometheus 
+            storage:
+              volumeClaimTemplate:
+                apiVersion: v1
+                kind: PersistentVolumeClaim
+                metadata:
+                  name: prometheus-pvc
+                spec:
+                  accessModes:
+                  - ReadWriteOnce
+                  resources:
+                    requests:
+                      storage: 10Gi
