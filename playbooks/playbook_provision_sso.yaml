@@ -6,7 +6,7 @@
   hosts: localhost
   vars:
     project: "sso"
-    hostname: "sso-ingress.sso.localdomain"
+    hostname: "sso-ingress.localdomain"
     database_username: "sso"
     database_name: "sso"
     database_password: "sso"
@@ -41,7 +41,7 @@
 
     - name: Wait for init
       ansible.builtin.pause:
-        minutes: 1
+        minutes: 5
         prompt: "check that operator is installed"
 
     - name: Create Keycloak
