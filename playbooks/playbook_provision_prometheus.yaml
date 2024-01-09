@@ -60,6 +60,29 @@
     #           matchLabels:
     #             app: 3scale-api-management
 
+    # - name: Create Prometheus PodMonitor
+    #   kubernetes.core.k8s:
+    #     state: present
+    #     definition:
+    #       apiVersion: monitoring.coreos.com/v1
+    #       kind: PodMonitor
+    #       metadata:
+    #         labels:
+    #           serviceMonitorSelector: prometheus
+    #         name: 3scale
+    #         namespace: "{{ project }}"
+    #       spec:
+    #         podMetricsEndpoints:
+    #         - interval: 30s
+    #           targetPort: 9421
+    #           path: /metrics
+    #         namespaceSelector:
+    #           matchNames:
+    #           - "3scale"
+    #         selector:
+    #           matchLabels:
+    #             app: "3scale-api-management"
+
     - name: Create Prometheus
       kubernetes.core.k8s:
         state: present
@@ -72,6 +95,10 @@
           spec:
             serviceAccountName: prometheus-k8s
             serviceMonitorSelector:
+              matchLabels:
+                # check all servicemonitor with this selector
+                serviceMonitorSelector: prometheus
+            podMonitorSelector:
               matchLabels:
                 # check all servicemonitor with this selector
                 serviceMonitorSelector: prometheus 
