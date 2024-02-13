@@ -8,6 +8,8 @@ podman run -d --rm --name ssodb --net dev \
  -e POSTGRESQL_DATABASE="sso" \
  registry.redhat.io/rhel8/postgresql-10:1-232
 
+sleep 30
+
 podman run -d --rm --name keycloak --net dev \
  -e KC_HOSTNAME="localhost:8081" \
  -e KC_HTTP_PORT="8081" \
