@@ -66,8 +66,8 @@
       when: data.stdout == "<no value>" or result.resources[0].data['artifacts.taskrun.storage'] != 'oci'
 
     - name: Modify Pipeline Storage
-      command: "oc patch configmap chains-config -n openshift-pipelines -p='{\"data\":{\"artifacts.pipeline.storage\": \"oci\"}}'"
-      when: data.stdout == "<no value>" or result.resources[0].data['artifacts.pipeline.storage'] != 'oci'
+      command: "oc patch configmap chains-config -n openshift-pipelines -p='{\"data\":{\"artifacts.pipelinerun.storage\": \"oci\"}}'"
+      when: data.stdout == "<no value>" or result.resources[0].data['artifacts.pipelinerun.storage'] != 'oci'
 
     - name: Get Tekton Chains Controller Name
       shell: oc get pod -n openshift-pipelines -o name | grep -i tekton-chains-controller
