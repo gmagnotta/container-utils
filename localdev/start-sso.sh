@@ -8,12 +8,18 @@ podman run -d --rm --name ssodb --net dev \
  -e POSTGRESQL_DATABASE="sso" \
  registry.redhat.io/rhel8/postgresql-10:1-232
 
-sleep 30
+sleep 15
+
+if [ ! -f ssokeystore.jks ]; then
+  echo "Generate Secrets"
+  keytool -genkeypair -storepass password -dname "CN=keycloak" -alias server -storetype PKCS12 -keyalg RSA -keysize 2048 -keystore sso.keystore
+fi
 
 podman run -d --rm --name keycloak --net dev \
- -e KC_HOSTNAME="localhost:8081" \
+ -v ./sso.keystore:/opt/certs/sso.keystore:z \
+ -e KC_HOSTNAME="keycloak:8081" \
  -e KC_HTTP_PORT="8081" \
- -e KC_HTTPS_PORT="8443" \
+ -e KC_HTTPS_PORT="8444" \
  -e KC_DB="postgres" \
  -e KC_DB_USERNAME="sso" \
  -e KC_DB_PASSWORD="sso" \
@@ -23,7 +29,10 @@ podman run -d --rm --name keycloak --net dev \
  -e KC_PROXY="passthrough" \
  -e KEYCLOAK_ADMIN="admin" \
  -e KEYCLOAK_ADMIN_PASSWORD="password" \
+ -e KC_HTTPS_KEY_STORE_FILE="/opt/certs/sso.keystore" \
+ -e KC_HTTPS_KEY_STORE_PASSWORD="password" \
  -p 8081:8081 \
+ -p 8444:8444 \
  registry.redhat.io/rhbk/keycloak-rhel9@sha256:d18adf0219a17b6619ddfb86a7d569019481f0315d94917793038ba5c6dc9567 start-dev
 
 #KC_HTTPS_CERTIFICATE_FILE: /mnt/certificates/tls.crt
