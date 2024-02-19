@@ -1,6 +1,11 @@
 #
 # Example gitea deployment
 #
+#
+# Please note that you could require to set in /etc/gitea/app.ini:
+#[webhook]
+#ALLOWED_HOST_LIST = * 
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
