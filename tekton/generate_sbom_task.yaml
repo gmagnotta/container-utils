@@ -12,11 +12,86 @@ spec:
       type: string
     - name: SBOMFILE
       default: 'result.cdx'
-      type: string  
+      type: string
+    - name: BUILDAH_IMAGE
+      default: 'quay.io/buildah/stable:latest'
+      description: The location of the buildah builder image.
+      type: string
+    - name: BUILDAH_PARAMS
+      default: "--storage-driver=overlay"
+      description: Parameters to pass to buildah
+      type: string
+    - name: OUTPUT_IMAGE
+      description: Location of the repo where image has to be pushed
+      type: string
+    - name: TLSVERIFY
+      default: 'true'
+      description: >-
+        Verify the TLS on the registry endpoint (for push/pull to a non-TLS
+        registry)
+      type: string
+  results:
+    - description: Url of the image just built.
+      name: IMAGE_URL
+      type: string
+    - name: IMAGE_DIGEST
+      description: Digest of the image just built.
+      type: string
+  volumes:
+    - emptyDir: {}
+      name: varlibcontainers
   workspaces:
     - name: source
+    - description: >-
+        An optional workspace that allows providing a .docker/config.json file
+        for Buildah to access the container registry. The file should be placed
+        at the root of the Workspace with name config.json.
+      name: dockerconfig
+      optional: true
   steps:
     - name: generate-sbom
       image: $(params.IMAGE)
       resources: {}
       args: ["$(params.IMAGETOSCAN)", "-o", "syft-table", "-o", "cyclonedx-json=$(params.SBOMFILE)"]
+    - name: build-and-push
+      resources: {}
+      image: $(params.BUILDAH_IMAGE)
+      script: |
+        #!/usr/bin/env bash
+
+        set -eu -o pipefail
+
+        OUTPUT_IMAGE=$(params.OUTPUT_IMAGE)
+        TLSVERIFY=$(params.TLSVERIFY)
+        BUILDAH_PARAMS=$(params.BUILDAH_PARAMS)
+
+        builder=$(buildah $BUILDAH_PARAMS from --tls-verify=$TLSVERIFY scratch)
+
+        echo "Copy from $(params.SBOMFILE) to /"
+        buildah $BUILDAH_PARAMS add --chown 0:0 $builder $(params.SBOMFILE) /
+
+        echo "Committing image $OUTPUT_IMAGE"
+        buildah $BUILDAH_PARAMS commit $builder $OUTPUT_IMAGE
+
+        echo "Deleting temporary images"
+        buildah $BUILDAH_PARAMS rm $builder
+
+        [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
+
+        buildah push $BUILDAH_PARAMS --tls-verify=$TLSVERIFY \
+          --digestfile $(workspaces.source.path)/sbom-image-digest $OUTPUT_IMAGE \
+          docker://$OUTPUT_IMAGE
+        
+        DIGEST=$(cat $(workspaces.source.path)/sbom-image-digest)
+
+        echo -n "$OUTPUT_IMAGE" > $(results.IMAGE_URL.path)
+        echo -n "$DIGEST" > $(results.IMAGE_DIGEST.path)
+
+        echo -n "Successfully built image $OUTPUT_IMAGE@$DIGEST"
+      securityContext:
+        capabilities:
+          add:
+            - SETFCAP
+      volumeMounts:
+        - mountPath: /var/lib/containers
+          name: varlibcontainers
