@@ -3,8 +3,8 @@
   hosts: localhost
   vars:
     project: "myproject"
-    username: "myvalue"
-    password: "myvalue"
+    registry_username: "myuser"
+    registry_password: "mypassword"
   tasks:
     - name: Create Project
       kubernetes.core.k8s:
@@ -13,7 +13,7 @@
         kind: Project
         state: present
     - name: Create secret
-      command: "oc create secret docker-registry redhatregistryio --docker-server=registry.redhat.io --docker-username={{ username }} --docker-password={{ password }} -n {{ project }}" 
+      command: "oc create secret docker-registry redhatregistryio --docker-server=registry.redhat.io --docker-username={{ registry_username }} --docker-password={{ registry_password }} -n {{ project }}" 
     - name: Link secret to default
       command: "oc secrets link default redhatregistryio --for=pull -n {{ project }}"
     - name: Link secret to builder

@@ -1,0 +1,22 @@
+---
+- name: Deploy new schema in postgresql
+  hosts: localhost
+  vars:
+    project: "postgresql"
+    container: "postgresql"
+    postgresql_database: "dbuser"
+    postgresql_user: "dbuser"
+    postgresql_password: "dbpassword"
+  tasks:
+
+    - name: Drop database
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "DROP DATABASE IF EXISTS {{ postgresql_database }};"
+
+    - name: Drop User
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "DROP USER IF EXISTS {{ postgresql_user }};"
+
+    - name: Create Database
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "CREATE DATABASE {{ postgresql_database }};"
+
+    - name: Create User
+      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "CREATE USER {{ postgresql_user }} with encrypted password '{{ postgresql_password }}';"

@@ -3,9 +3,9 @@
 # Playbook to create an installation of Red Hat SSO
 #
 
-- import_playbook: playbook_initialize_project.yaml
+#- import_playbook: playbook_initialize_project.yaml
 
-- import_playbook: playbook_provision_postgresql.yaml
+#- import_playbook: playbook_provision_postgresql.yaml
 
 - name: Deploy SSO in OpenShift cluster
   hosts: localhost
