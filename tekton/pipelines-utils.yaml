@@ -305,3 +305,31 @@ spec:
         oc patch configmap/hello-tomcat-pipelineconfig --type merge -p '{"data":{"dev-latest-built-digest":"$(tasks.build-runtime-image.results.IMAGE_DIGEST)"}}'
 
         oc patch configmap/hello-tomcat-pipelineconfig --type merge -p '{"data":{"dev-latest-built-simpledigest":"$(tasks.build-runtime-image.results.SIMPLE_DIGEST)"}}'
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: image-export-pipeline
+spec:
+  params:
+    - name: srcImageURL
+    - name: dstImageURL
+  workspaces:
+    - name: empty
+  tasks:
+    - name: copy
+      taskRef:
+        name: skopeo-copy
+        kind: ClusterTask
+      workspaces:
+        - name: images-url
+          workspace: empty
+      params:
+        - name: srcImageURL
+          value: "docker://$(params.srcImageURL)"
+        - name: destImageURL
+          value: "docker://$(params.dstImageURL)"
+        - name: srcTLSverify
+          value: "false"
+        - name: destTLSverify
+          value: "false"
