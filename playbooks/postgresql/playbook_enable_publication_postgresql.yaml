@@ -1,38 +1,50 @@
 ---
-- name: Deploy new schema in postgresql
+- name: Enable publication in postgresql
   hosts: localhost
   vars:
     project: "postgresql"
-    container: "postgresql"
+    application_name: "postgresql"
+    postgresql_database: "dbuser"
     postgresql_user: "dbuser"
     cdc: true
   tasks:
 
+    - name: Search for postgresql pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        label_selectors:
+          - "app = {{ application_name }}"
+      register: pod_list
+      until: pod_list|json_query('resources[*].status.phase')|unique == ["Running"]
+      #until: pod_list|json_query('resources[*].status.phase')|unique == ["Running"]
+      retries: 10
+      delay: 10
+
     - name: Enable Replication
-      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "ALTER USER {{ postgresql_user }} REPLICATION;"
+      shell: oc exec {{ pod_list | json_query('resources[0].metadata.name') }} -n {{ project }} -- /usr/bin/psql postgres -c "ALTER USER {{ postgresql_user }} REPLICATION;"
       when: cdc|bool == true
 
     - name: Enable Publication
-      command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql {{ postgresql_user }} -c "CREATE PUBLICATION dbz_publication FOR ALL TABLES;"
+      shell: oc exec {{ pod_list | json_query('resources[0].metadata.name') }} -n {{ project }} -- /usr/bin/psql {{ postgresql_user }} -c "CREATE PUBLICATION dbz_publication FOR ALL TABLES;"
       when: cdc|bool == true
 
     - name: Change WAL level
-      command: oc exec svc/{{ container }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#wal_level \= replica/wal_level \= logical/g' /var/lib/pgsql/data/userdata/postgresql.conf"
+      shell: oc exec {{ pod_list | json_query('resources[0].metadata.name') }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#wal_level \= replica/wal_level \= logical/g' /var/lib/pgsql/data/userdata/postgresql.conf"
       when: cdc|bool == true
 
     - name: Change WAL level
-      command: oc exec svc/{{ container }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#max_wal_senders \= 10/max_wal_senders \= 4/g' /var/lib/pgsql/data/userdata/postgresql.conf"
+      shell: oc exec {{ pod_list | json_query('resources[0].metadata.name') }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#max_wal_senders \= 10/max_wal_senders \= 4/g' /var/lib/pgsql/data/userdata/postgresql.conf"
       when: cdc|bool == true
 
     - name: Change WAL level
-      command: oc exec svc/{{ container }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#smax_replication_slots \= 10/max_replication_slots \= 4/g' /var/lib/pgsql/data/userdata/postgresql.conf"
+      shell: oc exec {{ pod_list | json_query('resources[0].metadata.name') }} -n {{ project }} -- /bin/bash -c "sed -i 's/\#max_replication_slots \= 10/max_replication_slots \= 4/g' /var/lib/pgsql/data/userdata/postgresql.conf"
       when: cdc|bool == true
 
-    - name: Get pod name
-      shell: oc get pod -n {{ project }} -o name | grep -i {{ container }}
-      when: cdc|bool == true
-      register: podname
+#    - name: Get pod name
+#      shell: oc get pod -n {{ project }} -o name | grep -i {{ application_name }}
+#      when: cdc|bool == true
+#      register: podname
 
     - name: Restart pod
-      command: oc delete {{ podname.stdout }} -n {{ project }}
+      shell: oc delete pod/{{ pod_list | json_query('resources[0].metadata.name') }} -n {{ project }}
       when: cdc|bool == true

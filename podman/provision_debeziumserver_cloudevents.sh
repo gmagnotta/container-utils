@@ -38,5 +38,5 @@ if [ $? != 0 ]; then
   exit
 fi
 
-podman run --name debezium --net dev -v debezium_conf:/debezium/conf -v debezium_data:/debezium/data debezium/server
+podman run --name debezium --net dev -v debezium_conf:/debezium/conf -v debezium_data:/debezium/data docker.io/debezium/server@sha256:9fdec631dc5ba3257151a05d0aabc0c6dd2a2f10a0e54d37de9b9bb40dd76a25
 

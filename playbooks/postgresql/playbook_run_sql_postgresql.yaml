@@ -5,7 +5,6 @@
     project: "postgresql"
     application_name: "postgresql"
     postgresql_file: "myfile.sql"
-    postgresql_pod: "postgresql"
     postgresql_database: "dbuser"
     postgresql_user: "dbuser"
   tasks:
