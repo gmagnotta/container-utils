@@ -1,0 +1,24 @@
+---
+- name: Run a sql file in postgresql
+  hosts: localhost
+  vars:
+    project: "postgresql"
+    application_name: "postgresql"
+    postgresql_file: "myfile.sql"
+    postgresql_pod: "postgresql"
+    postgresql_database: "dbuser"
+    postgresql_user: "dbuser"
+  tasks:
+
+    # - name: Get postgresql pod name
+    #   shell: oc get pod -n {{ project }} -o name | grep -i {{ application_name }}
+    #   register: postgresql_name
+
+    - name: Copy file
+      command: oc cp {{ postgresql_file }} {{ postgresql_pod }}:/tmp/myfile.sql -n {{ project }}
+
+    - name: Run file
+      command: oc exec {{ postgresql_pod }} -n {{ project }} -- /usr/bin/psql -U {{ postgresql_user }} -d {{ postgresql_database }} -f /tmp/myfile.sql
+
+    - name: Delete file
+      command: oc exec {{ postgresql_pod }} -n {{ project }} -- rm /tmp/myfile.sql

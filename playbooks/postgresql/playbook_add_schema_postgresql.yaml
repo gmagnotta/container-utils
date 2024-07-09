@@ -7,13 +7,16 @@
     postgresql_database: "dbuser"
     postgresql_user: "dbuser"
     postgresql_password: "dbpassword"
+    drop: false
   tasks:
 
     - name: Drop database
       command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "DROP DATABASE IF EXISTS {{ postgresql_database }};"
+      when: drop|bool == true
 
     - name: Drop User
       command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "DROP USER IF EXISTS {{ postgresql_user }};"
+      when: drop|bool == true
 
     - name: Create Database
       command: oc exec svc/{{ container }} -n {{ project }} -- /usr/bin/psql postgres -c "CREATE DATABASE {{ postgresql_database }};"
