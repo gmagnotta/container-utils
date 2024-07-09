@@ -1,0 +1,111 @@
+---
+- name: Deploy debezium server in OpenShift cluster
+  hosts: localhost
+  vars:
+    project: "myproject"
+    application_name: "debezium"
+    volume_capacity: "1Gi"
+  tasks:
+
+    - name: Create ImageStream
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: image.openshift.io/v1
+          kind: ImageStream
+          metadata:
+            name: debezium
+            namespace: "{{ project }}"
+          spec:
+            lookupPolicy:
+              local: true
+            tags:
+              - annotations:
+                  description: Debezium server
+                from:
+                  kind: DockerImage
+                  name: "docker.io/debezium/server@sha256:f9cec4893e40f66de78d582821d67b2616957ac56aa2af46657b1f605e80f763"
+                name: "2.7"
+                referencePolicy:
+                  type: Local
+
+    - name: Create PersistentVolumeClaim
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: "{{ application_name }}-pvc"
+            namespace: "{{ project }}"
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "{{ volume_capacity }}"
+
+    - name: Create configmap
+      command: "oc create configmap application.properties -n {{ project }} --from-file=application.properties"
+
+    - name: Create Deployment
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ application_name }}"
+            namespace: "{{ project }}"
+            labels:
+              app: "{{ application_name }}"
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: "{{ application_name }}"
+            template:
+              metadata:
+                labels:
+                  app: "{{ application_name }}"
+                annotations:
+                  alpha.image.policy.openshift.io/resolve-names: '*'
+              spec:
+                volumes:
+                  - name: data
+                    persistentVolumeClaim:
+                      claimName: "{{ application_name }}-pvc"
+                  - name: applicationproperties
+                    configMap:
+                      name: application.properties
+                      items:
+                      - key: "application.properties"
+                        path: application.properties
+                containers:
+                  - name: debezium
+                    securityContext:
+                      runAsNonRoot: true
+                      seccompProfile:
+                        type: RuntimeDefault
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                        - ALL
+                    image: debezium:2.7
+                    volumeMounts:
+                      - mountPath: /debezium/data
+                        name: data
+                      - mountPath: /debezium/conf
+                        name: applicationproperties
+                        readOnly: true
+                    resources: {}
+                    imagePullPolicy: IfNotPresent
+                restartPolicy: Always
+                terminationGracePeriodSeconds: 60
+                dnsPolicy: ClusterFirst
+                securityContext: {}
+                schedulerName: default-scheduler
+            strategy:
+              type: Recreate
+            revisionHistoryLimit: 10
+            progressDeadlineSeconds: 600
