@@ -10,15 +10,34 @@
     postgresql_user: "dbuser"
   tasks:
 
-    # - name: Get postgresql pod name
-    #   shell: oc get pod -n {{ project }} -o name | grep -i {{ application_name }}
-    #   register: postgresql_name
+#    - name: Get postgresql pod name
+#      shell: oc get pod -n {{ project }} -o name | grep -i {{ application_name }}
+#      register: postgresql_name
+
+    - name: Search for postgresql pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        label_selectors:
+          - "app = {{ application_name }}"
+      register: pod_list
+      until: pod_list|json_query('resources[*].status.phase')|unique == ["Running"]
+      #until: pod_list|json_query('resources[*].status.phase')|unique == ["Running"]
+      retries: 10
+      delay: 10
+
+#    - name: show
+#      debug:
+#        msg: "{{ postgresql_name.stdout }}"
+
+    - name: show pod name
+      debug:
+        msg: "Found postgresql pod: {{ pod_list | json_query('resources[0].metadata.name') }}"
 
     - name: Copy file
-      command: oc cp {{ postgresql_file }} {{ postgresql_pod }}:/tmp/myfile.sql -n {{ project }}
+      shell: oc cp {{ postgresql_file }} {{ pod_list | json_query('resources[0].metadata.name') }}:/tmp/myfile.sql -n {{ project }}
 
     - name: Run file
-      command: oc exec {{ postgresql_pod }} -n {{ project }} -- /usr/bin/psql -U {{ postgresql_user }} -d {{ postgresql_database }} -f /tmp/myfile.sql
+      shell: oc exec {{ pod_list | json_query('resources[0].metadata.name') }} -n {{ project }} -- /usr/bin/psql -U {{ postgresql_user }} -d {{ postgresql_database }} -f /tmp/myfile.sql
 
     - name: Delete file
-      command: oc exec {{ postgresql_pod }} -n {{ project }} -- rm /tmp/myfile.sql
+      shell: oc exec {{ pod_list | json_query('resources[0].metadata.name') }} -n {{ project }} -- rm /tmp/myfile.sql
