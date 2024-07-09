@@ -29,7 +29,7 @@
             installPlanApproval: Automatic
             source: redhat-operators
             sourceNamespace: openshift-marketplace
-            startingCSV: rhbk-operator.v22.0.9-opr.1
+            #startingCSV: rhbk-operator.v22.0.9-opr.1
 
     - name: Gen OpenSSL
       command: openssl req -subj "/CN={{ hostname }}/O=Test Keycloak./C=US" -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem
