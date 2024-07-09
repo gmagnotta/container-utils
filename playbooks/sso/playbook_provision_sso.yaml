@@ -3,10 +3,6 @@
 # Playbook to create an installation of Red Hat SSO
 #
 
-#- import_playbook: playbook_initialize_project.yaml
-
-#- import_playbook: playbook_provision_postgresql.yaml
-
 - name: Deploy SSO in OpenShift cluster
   hosts: localhost
   vars:
@@ -33,7 +29,7 @@
             installPlanApproval: Automatic
             source: redhat-operators
             sourceNamespace: openshift-marketplace
-            startingCSV: rhbk-operator.v22.0.8-opr.2
+            startingCSV: rhbk-operator.v22.0.9-opr.1
 
     - name: Gen OpenSSL
       command: openssl req -subj "/CN={{ hostname }}/O=Test Keycloak./C=US" -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem
@@ -44,10 +40,20 @@
     - name: Import TLS
       command: "oc create secret generic keycloak-db-secret --from-literal=username={{ database_username }} --from-literal=password={{ database_password }} -n {{ project }}"
 
-    - name: Wait for init
-      ansible.builtin.pause:
-        minutes: 5
-        prompt: "check that operator is installed"
+    - name: Search for rhbk pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        label_selectors:
+          - "name = rhbk-operator"
+      register: pod_list
+      until: pod_list|json_query('resources[*].status.phase')|unique == ["Running"]
+      retries: 10
+      delay: 10
+
+    # - name: Wait for init
+    #   ansible.builtin.pause:
+    #     minutes: 5
+    #     prompt: "check that operator is installed"
 
     - name: Create Keycloak
       kubernetes.core.k8s:
