@@ -1,0 +1,50 @@
+ARG EE_BASE_IMAGE="registry.redhat.io/ansible-automation-platform-25/ee-supported-rhel8"
+ARG EE_BUILDER_IMAGE="registry.redhat.io/ansible-automation-platform-22/ansible-builder-rhel8:latest"
+ARG PYCMD="/usr/bin/python3"
+ARG PKGMGR_PRESERVE_CACHE=""
+ARG ANSIBLE_GALAXY_CLI_COLLECTION_OPTS=""
+ARG ANSIBLE_GALAXY_CLI_ROLE_OPTS=""
+
+# Base build stage
+FROM $EE_BASE_IMAGE as base
+USER root
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ARG EE_BASE_IMAGE
+ARG EE_BUILDER_IMAGE
+ARG PYCMD
+ARG PKGMGR_PRESERVE_CACHE
+ARG ANSIBLE_GALAXY_CLI_COLLECTION_OPTS
+ARG ANSIBLE_GALAXY_CLI_ROLE_OPTS
+
+COPY _build/scripts/ /output/scripts/
+COPY _build/scripts/entrypoint /opt/builder/bin/entrypoint
+
+# Builder build stage
+FROM $EE_BUILDER_IMAGE as builder
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+WORKDIR /build
+ARG EE_BASE_IMAGE
+ARG EE_BUILDER_IMAGE
+ARG PYCMD
+ARG PKGMGR_PRESERVE_CACHE
+ARG ANSIBLE_GALAXY_CLI_COLLECTION_OPTS
+ARG ANSIBLE_GALAXY_CLI_ROLE_OPTS
+
+COPY _build/scripts/pip_install /output/scripts/pip_install
+RUN /output/scripts/pip_install $PYCMD
+
+# Final build stage
+FROM base as final
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ARG EE_BASE_IMAGE
+ARG EE_BUILDER_IMAGE
+ARG PYCMD
+ARG PKGMGR_PRESERVE_CACHE
+ARG ANSIBLE_GALAXY_CLI_COLLECTION_OPTS
+ARG ANSIBLE_GALAXY_CLI_ROLE_OPTS
+
+COPY --from=builder /output/ /output/
+RUN /output/scripts/install-from-bindep && rm -rf /output/wheels
+RUN rm -rf /output
+RUN microdnf install --enablerepo=service-interconnect-1.8-for-rhel-8-x86_64-rpms skupper-cli && microdnf clean all
+LABEL ansible-execution-environment=true
